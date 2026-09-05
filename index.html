@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>개인 단어장</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="단어장">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --paper:#ffffff;
+  --ink:#404041;
+  --body:#57585A;
+  --faint:#9a9b9d;
+  --rule:#e6e6e6;
+  --rule-soft:#f0f0f0;
+  --mark:#8c2f2f;
+  --field:#fbfbfb;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",Roboto,"Noto Sans KR",sans-serif;
+  --serif:Georgia,"Iowan Old Style","Times New Roman","Noto Serif",serif;
+  --navh:56px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);color:var(--body);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:none;border:none;padding:0;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.wrap{max-width:680px;margin:0 auto;padding:0 20px}
+
+/* ---------- nav ---------- */
+#nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:var(--paper);border-top:1px solid var(--rule);
+  padding-bottom:env(safe-area-inset-bottom);
+  display:none;
+}
+#nav.on{display:block}
+#nav ul{display:flex;margin:0 auto;padding:0;list-style:none;max-width:680px}
+#nav li{flex:1}
+#nav button{
+  width:100%;height:var(--navh);color:var(--faint);
+  font-size:13px;letter-spacing:.02em;
+}
+#nav button[aria-current="true"]{color:var(--ink);font-weight:600;box-shadow:inset 0 2px 0 var(--ink)}
+#nav .badge{color:var(--mark);font-size:11px;vertical-align:super;margin-left:2px}
+
+/* ---------- main ---------- */
+main{padding-bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 24px);min-height:100vh}
+
+.viewhead{padding:26px 0 14px}
+.viewhead h1{
+  margin:0;font-size:17px;font-weight:600;color:var(--ink);letter-spacing:-.01em;
+}
+.viewhead p{margin:4px 0 0;font-size:13px;color:var(--faint)}
+
+.hr{border:0;border-top:1px solid var(--rule);margin:0}
+
+/* ---------- search ---------- */
+.searchbar{position:sticky;top:0;z-index:20;background:var(--paper);padding:10px 0 12px}
+.searchbar input{
+  width:100%;border:1px solid var(--rule);background:var(--field);
+  padding:11px 13px;border-radius:3px;font-size:16px;
+}
+.searchbar input::placeholder{color:var(--faint)}
+
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.chip{
+  border:1px solid var(--rule);border-radius:14px;padding:4px 11px;
+  font-size:12.5px;color:var(--faint);background:var(--paper);
+}
+.chip[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:600}
+.chip.markish[aria-pressed="true"]{border-color:var(--mark);color:var(--mark)}
+
+/* ---------- list ---------- */
+.rows{margin:0;padding:0;list-style:none}
+.row{
+  display:flex;align-items:baseline;gap:12px;
+  width:100%;text-align:left;
+  padding:13px 0;border-bottom:1px solid var(--rule-soft);
+}
+.row .lang{font-size:11px;color:var(--faint);width:22px;flex:none;letter-spacing:.03em}
+.row .main{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .term{font-family:var(--serif);font-size:19px;color:var(--ink)}
+.row .sub{font-size:12.5px;color:var(--faint);margin-left:9px}
+.dots{flex:none;display:flex;gap:3px;align-self:center}
+.dots i{width:5px;height:5px;border-radius:50%;background:var(--ink);display:block}
+.dots i.off{background:none;box-shadow:inset 0 0 0 1px var(--mark)}
+
+.empty{padding:56px 0;text-align:center;color:var(--faint);font-size:14px}
+.empty b{display:block;color:var(--body);font-weight:600;margin-bottom:6px}
+
+/* ---------- add ---------- */
+.seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-bottom:14px}
+.seg button{flex:1;padding:11px 0;font-size:14px;color:var(--faint);border-right:1px solid var(--rule)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff;font-weight:600}
+
+.bigfield{
+  width:100%;border:1px solid var(--rule);border-radius:3px;background:var(--field);
+  padding:14px;font-family:var(--serif);font-size:22px;color:var(--ink);
+}
+.btn{
+  border:1px solid var(--ink);background:var(--ink);color:#fff;
+  padding:12px 18px;border-radius:3px;font-size:14px;font-weight:600;width:100%;
+}
+.btn.ghost{background:none;color:var(--ink)}
+.btn.small{width:auto;padding:7px 13px;font-size:13px;font-weight:400}
+.btn[disabled]{opacity:.4}
+
+.recent{margin-top:26px}
+.recent h2{font-size:13px;font-weight:600;color:var(--ink);margin:0 0 4px}
+
+/* ---------- detail ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0;gap:12px}
+.topbar button{font-size:13px;color:var(--faint)}
+.topbar .del{color:var(--mark)}
+
+.headword{padding:6px 0 2px}
+.headword input{
+  width:100%;border:0;border-bottom:1px solid transparent;background:none;
+  font-family:var(--serif);font-size:34px;line-height:1.2;color:var(--ink);
+  padding:2px 0;
+}
+.headword input:hover{border-bottom-color:var(--rule)}
+.headword input:focus{outline:none;border-bottom-color:var(--ink)}
+.metaline{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:12.5px;color:var(--faint)}
+.metaline select{border:1px solid var(--rule);border-radius:3px;padding:3px 6px;font-size:12.5px;background:var(--paper)}
+
+section.f{padding:18px 0;border-top:1px solid var(--rule-soft)}
+section.f > h3{
+  margin:0 0 8px;font-size:12.5px;font-weight:600;color:var(--body);
+  display:flex;align-items:center;gap:7px;
+}
+section.f.gap > h3{color:var(--mark)}
+section.f.gap > h3::after{content:"비어 있음";font-weight:400;font-size:11.5px;opacity:.75}
+
+textarea.auto{
+  width:100%;border:1px solid transparent;border-radius:3px;background:none;
+  padding:7px 9px;margin:-7px -9px;resize:none;overflow:hidden;
+  font-size:15px;line-height:1.65;color:var(--ink);min-height:36px;
+}
+textarea.auto:hover{border-color:var(--rule-soft)}
+textarea.auto:focus{outline:none;border-color:var(--rule);background:var(--field)}
+textarea.auto::placeholder{color:var(--faint);font-style:italic}
+textarea.src{font-family:var(--serif);font-size:16.5px}
+
+/* related word chips */
+.words{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.wchip{
+  display:inline-flex;align-items:center;gap:0;
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+}
+.wchip .go{
+  font-family:var(--serif);font-size:15px;color:var(--ink);padding:5px 4px 5px 9px;
+}
+.wchip .lg{font-family:var(--sans);font-size:10px;color:var(--faint);padding-left:5px}
+.wchip .x{padding:5px 8px 5px 6px;color:var(--faint);font-size:13px}
+.wchip .x:hover{color:var(--mark)}
+.addw{border:1px dashed var(--rule);border-radius:3px;padding:5px 11px;font-size:13px;color:var(--faint)}
+
+.wform{margin-top:9px;position:relative}
+.wform .line{display:flex;gap:6px}
+.wform select{border:1px solid var(--rule);border-radius:3px;padding:8px 6px;background:var(--paper);font-size:13px}
+.wform input{
+  flex:1;min-width:0;border:1px solid var(--rule);border-radius:3px;padding:8px 10px;
+  font-family:var(--serif);font-size:16px;background:var(--field);
+}
+.sugg{
+  position:absolute;left:0;right:0;top:100%;z-index:15;background:var(--paper);
+  border:1px solid var(--rule);border-top:0;max-height:190px;overflow:auto;
+}
+.sugg button{display:block;width:100%;text-align:left;padding:8px 11px;font-family:var(--serif);font-size:15px;color:var(--ink)}
+.sugg button:hover,.sugg button.sel{background:var(--field)}
+.sugg .lg{font-family:var(--sans);font-size:10px;color:var(--faint);margin-left:6px}
+.hint{font-size:11.5px;color:var(--faint);margin-top:6px}
+
+/* audio */
+.audio{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.rec{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid var(--rule);border-radius:3px;padding:8px 14px;font-size:13.5px;color:var(--ink);
+}
+.rec .dot{width:9px;height:9px;border-radius:50%;background:var(--mark);flex:none}
+.rec.live{border-color:var(--mark);color:var(--mark)}
+.rec.live .dot{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.rec.live .dot{animation:none}}
+.play{
+  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--ink);border-radius:3px;padding:8px 15px;font-size:13.5px;color:var(--ink);font-weight:600;
+}
+.audio .t{font-size:12.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+
+/* examples */
+.ex{padding:12px 0;border-top:1px dotted var(--rule)}
+.ex:first-of-type{border-top:0;padding-top:2px}
+.ex .tools{display:flex;gap:2px;justify-content:flex-end;margin-top:2px}
+.ex .tools button{font-size:12px;color:var(--faint);padding:3px 7px}
+.ex .tools button:hover{color:var(--ink)}
+.ex .tools .x:hover{color:var(--mark)}
+
+/* trash */
+.trow{display:flex;align-items:baseline;gap:12px;padding:13px 0;border-bottom:1px solid var(--rule-soft)}
+.trow .main{flex:1;min-width:0}
+.trow .term{font-family:var(--serif);font-size:17px;color:var(--body)}
+.trow .sub{font-size:12px;color:var(--faint)}
+.trow .acts{display:flex;gap:4px;flex:none}
+.trow .acts button{font-size:12.5px;padding:5px 9px;border:1px solid var(--rule);border-radius:3px;color:var(--body)}
+.trow .acts .x{color:var(--mark);border-color:transparent}
+
+/* login */
+#login{display:none;padding:16vh 0 0}
+#login.on{display:block}
+#login h1{font-family:var(--serif);font-size:30px;color:var(--ink);font-weight:400;margin:0 0 4px}
+#login p{margin:0 0 26px;font-size:13.5px;color:var(--faint)}
+#login input{
+  width:100%;border:1px solid var(--rule);border-radius:3px;background:var(--field);
+  padding:12px 13px;font-size:16px;margin-bottom:9px;
+}
+#login .err{color:var(--mark);font-size:13px;min-height:20px;margin-top:10px}
+
+/* toast + status */
+#toast{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--navh) + env(safe-area-inset-bottom) + 16px);
+  background:var(--ink);color:#fff;font-size:13px;padding:9px 16px;border-radius:3px;
+  z-index:60;opacity:0;pointer-events:none;transition:opacity .18s;max-width:88vw;
+}
+#toast.on{opacity:1}
+#toast button{color:#fff;text-decoration:underline;margin-left:10px;font-size:13px;pointer-events:auto}
+#saving{
+  position:fixed;top:0;left:0;right:0;height:2px;background:var(--ink);
+  transform:scaleX(0);transform-origin:left;transition:transform .25s;z-index:70;
+}
+#saving.on{transform:scaleX(1)}
+
+#boot{padding:24vh 0;text-align:center;color:var(--faint);font-size:14px}
+
+@media (min-width:760px){
+  :root{--navh:0px}
+  #nav{position:static;border-top:0;border-bottom:1px solid var(--rule)}
+  #nav ul{padding:0}
+  #nav button{height:52px;font-size:14px}
+  #nav button[aria-current="true"]{box-shadow:inset 0 -2px 0 var(--ink)}
+  main{padding-bottom:80px;min-height:0}
+  #toast{bottom:26px}
+}
+</style>
+</head>
+<body>
+
+<div id="saving"></div>
+
+<div id="boot" class="wrap">불러오는 중…</div>
+
+<div id="login" class="wrap">
+  <h1>개인 단어장</h1>
+  <p>영어 · 프랑스어 · 독일어</p>
+  <input id="lgEmail" type="email" placeholder="이메일" autocomplete="username">
+  <input id="lgPass" type="password" placeholder="비밀번호" autocomplete="current-password">
+  <button class="btn" id="lgBtn">로그인</button>
+  <div class="err" id="lgErr"></div>
+</div>
+
+<nav id="nav">
+  <ul>
+    <li><button data-nav="list">찾기</button></li>
+    <li><button data-nav="add">등록</button></li>
+    <li><button data-nav="gaps">채우기<span class="badge" id="gapCount"></span></button></li>
+    <li><button data-nav="trash">휴지통</button></li>
+  </ul>
+</nav>
+
+<main><div class="wrap" id="view"></div></main>
+
+<div id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+/* ============================================================
+   1. 설정  — 이 세 줄만 본인 값으로 바꾸면 됩니다
+   ============================================================ */
+const CONFIG = {
+  SUPABASE_URL:      'https://YOUR-PROJECT.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_sB7Fk8B6FSBy7dEZufJTOg_qWUBvpP6',
+  TRASH_DAYS: 30,
+};
+
+const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+/* ============================================================
+   2. 상수 / 상태
+   ============================================================ */
+const LANGS = { en:'영어', fr:'프랑스어', de:'독일어' };
+const LANG_SHORT = { en:'EN', fr:'FR', de:'DE' };
+const KINDS = { etym:'어원적 연관어', syn:'동의어', ant:'반의어' };
+const FIELDS = [
+  { key:'meaning',   label:'의미' },
+  { key:'audio',     label:'발음' },
+  { key:'etymology', label:'어원' },
+  { key:'etym',      label:'어원적 연관어' },
+  { key:'syn',       label:'동의어' },
+  { key:'ant',       label:'반의어' },
+  { key:'example',   label:'예문' },
+];
+
+const S = {
+  uid: null,
+  entries: new Map(),   // id -> entry
+  links: [],            // {id, from_id, to_id, kind}
+  examples: new Map(),  // entry_id -> [example]
+  q: '',
+  langFilter: new Set(),
+  gapFilter: new Set(FIELDS.map(f => f.key)),
+  addLang: localStorage.getItem('lastLang') || 'fr',
+  signed: new Map(),    // audio_path -> url
+};
+
+const $ = s => document.querySelector(s);
+const view = $('#view');
+
+/* ============================================================
+   3. 유틸
+   ============================================================ */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+const fold = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+
+function toast(msg, actionLabel, action) {
+  const t = $('#toast');
+  t.innerHTML = esc(msg);
+  if (actionLabel) {
+    const b = document.createElement('button');
+    b.textContent = actionLabel;
+    b.onclick = () => { t.classList.remove('on'); action(); };
+    t.appendChild(b);
+  }
+  t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('on'), actionLabel ? 5000 : 2200);
+}
+
+let busy = 0;
+function work(on) {
+  busy += on ? 1 : -1;
+  $('#saving').classList.toggle('on', busy > 0);
+}
+async function guard(fn) {
+  work(true);
+  try { return await fn(); }
+  catch (e) { console.error(e); toast(e?.message || '저장하지 못했습니다. 연결을 확인하세요.'); }
+  finally { work(false); }
+}
+
+function debounce(fn, ms) {
+  let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+function grow(ta) {
+  ta.style.height = '0px';                       // 'auto' falls back to rows=2
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+const live = () => [...S.entries.values()].filter(e => !e.deleted_at);
+const trashed = () => [...S.entries.values()].filter(e => e.deleted_at);
+const exOf = id => (S.examples.get(id) || []).slice().sort((a,b) => a.sort_order - b.sort_order);
+const linksOf = (id, kind) => S.links
+  .filter(l => l.from_id === id && l.kind === kind)
+  .map(l => S.entries.get(l.to_id))
+  .filter(e => e && !e.deleted_at)
+  .sort((a,b) => a.term.localeCompare(b.term));
+
+function gapsOf(e) {
+  const g = [];
+  if (!e.meaning.trim())            g.push('meaning');
+  if (!e.audio_path)                g.push('audio');
+  if (!e.etymology.trim())          g.push('etymology');
+  if (!linksOf(e.id,'etym').length) g.push('etym');
+  if (!linksOf(e.id,'syn').length)  g.push('syn');
+  if (!linksOf(e.id,'ant').length)  g.push('ant');
+  if (!exOf(e.id).some(x => x.text.trim())) g.push('example');
+  return g;
+}
+
+function dotsHtml(e) {
+  const g = new Set(gapsOf(e));
+  const names = FIELDS.filter(f => g.has(f.key)).map(f => f.label);
+  const title = names.length ? names.join(', ') + ' 없음' : '모두 채워짐';
+  return `<span class="dots" title="${esc(title)}">` +
+    FIELDS.map(f => `<i class="${g.has(f.key) ? 'off' : ''}"></i>`).join('') + '</span>';
+}
+
+/* ============================================================
+   4. 데이터 로드
+   ============================================================ */
+async function loadAll() {
+  const [e, l, x] = await Promise.all([
+    sb.from('entries').select('*'),
+    sb.from('links').select('*'),
+    sb.from('examples').select('*'),
+  ]);
+  if (e.error || l.error || x.error) throw (e.error || l.error || x.error);
+
+  S.entries = new Map(e.data.map(r => [r.id, r]));
+  S.links = l.data;
+  S.examples = new Map();
+  for (const r of x.data) {
+    if (!S.examples.has(r.entry_id)) S.examples.set(r.entry_id, []);
+    S.examples.get(r.entry_id).push(r);
+  }
+}
+
+async function purgeExpired() {
+  const cutoff = new Date(Date.now() - CONFIG.TRASH_DAYS * 864e5).toISOString();
+  const old = trashed().filter(e => e.deleted_at < cutoff);
+  if (!old.length) return;
+  const paths = old.map(e => e.audio_path).filter(Boolean);
+  if (paths.length) await sb.storage.from('audio').remove(paths);
+  await sb.from('entries').delete().in('id', old.map(e => e.id));
+  for (const e of old) S.entries.delete(e.id);
+}
+
+/* ============================================================
+   5. 쓰기 작업
+   ============================================================ */
+async function createEntry(lang, term) {
+  const t = term.trim();
+  if (!t) return null;
+  const dup = live().find(e => e.lang === lang && fold(e.term) === fold(t));
+  if (dup) return dup;
+  const { data, error } = await sb.from('entries')
+    .insert({ user_id:S.uid, lang, term:t }).select().single();
+  if (error) throw error;
+  S.entries.set(data.id, data);
+  return data;
+}
+
+async function patchEntry(id, patch) {
+  Object.assign(S.entries.get(id), patch);
+  const { error } = await sb.from('entries').update(patch).eq('id', id);
+  if (error) throw error;
+}
+
+async function addLink(a, b, kind) {
+  if (a === b) { toast('자기 자신은 연결할 수 없습니다.'); return; }
+  const rows = [
+    { user_id:S.uid, from_id:a, to_id:b, kind },
+    { user_id:S.uid, from_id:b, to_id:a, kind },
+  ].filter(r => !S.links.some(l => l.from_id===r.from_id && l.to_id===r.to_id && l.kind===kind));
+  if (!rows.length) return;
+  const { data, error } = await sb.from('links').insert(rows).select();
+  if (error) throw error;
+  S.links.push(...data);
+}
+
+async function dropLink(a, b, kind) {
+  const ids = S.links
+    .filter(l => l.kind === kind && ((l.from_id===a && l.to_id===b) || (l.from_id===b && l.to_id===a)))
+    .map(l => l.id);
+  if (!ids.length) return;
+  const { error } = await sb.from('links').delete().in('id', ids);
+  if (error) throw error;
+  S.links = S.links.filter(l => !ids.includes(l.id));
+}
+
+async function softDelete(id) {
+  await patchEntry(id, { deleted_at: new Date().toISOString() });
+}
+async function restore(id) {
+  const e = S.entries.get(id);
+  const clash = live().find(o => o.id !== id && o.lang === e.lang && fold(o.term) === fold(e.term));
+  if (clash) { toast('같은 표제어가 이미 있어서 되돌릴 수 없습니다.'); return; }
+  await patchEntry(id, { deleted_at: null });
+}
+async function hardDelete(id) {
+  const e = S.entries.get(id);
+  if (e.audio_path) await sb.storage.from('audio').remove([e.audio_path]);
+  const { error } = await sb.from('entries').delete().eq('id', id);
+  if (error) throw error;
+  S.entries.delete(id);
+  S.examples.delete(id);
+  S.links = S.links.filter(l => l.from_id !== id && l.to_id !== id);
+}
+
+/* ============================================================
+   6. 라우팅
+   ============================================================ */
+function go(hash) { location.hash = hash; }
+
+function route() {
+  const raw = location.hash.replace(/^#\/?/, '') || 'list';
+  const [name, arg] = raw.split('/');
+  document.querySelectorAll('#nav button[data-nav]').forEach(b =>
+    b.setAttribute('aria-current', String(b.dataset.nav === name)));
+  window.scrollTo(0, 0);
+  if (name === 'add')   return renderAdd();
+  if (name === 'gaps')  return renderGaps();
+  if (name === 'trash') return renderTrash();
+  if (name === 'e')     return renderDetail(arg);
+  return renderList();
+}
+
+function refreshBadge() {
+  const n = live().filter(e => gapsOf(e).length).length;
+  $('#gapCount').textContent = n ? String(n) : '';
+}
+
+/* ============================================================
+   7. 찾기
+   ============================================================ */
+function searchHits() {
+  const q = fold(S.q.trim());
+  let arr = live();
+  if (S.langFilter.size) arr = arr.filter(e => S.langFilter.has(e.lang));
+  if (q) {
+    arr = arr.filter(e =>
+      fold(e.term).includes(q) ||
+      fold(e.meaning).includes(q) ||
+      fold(e.etymology).includes(q) ||
+      exOf(e.id).some(x => fold(x.text).includes(q) || fold(x.translation).includes(q)));
+    arr.sort((a,b) => {
+      const ra = fold(a.term).startsWith(q) ? 0 : fold(a.term).includes(q) ? 1 : 2;
+      const rb = fold(b.term).startsWith(q) ? 0 : fold(b.term).includes(q) ? 1 : 2;
+      return ra - rb || a.term.localeCompare(b.term);
+    });
+  } else {
+    arr.sort((a,b) => (b.created_at > a.created_at ? 1 : -1));
+  }
+  return arr;
+}
+
+function rowsHtml(arr) {
+  if (!arr.length) return '';
+  return `<ul class="rows">` + arr.map(e => {
+    const sub = e.meaning.trim() || e.etymology.trim() || '';
+    return `<li><button class="row" data-open="${e.id}">
+      <span class="lang">${LANG_SHORT[e.lang]}</span>
+      <span class="main">
+        <span class="term">${esc(e.term)}</span>
+        ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}
+      </span>
+      ${dotsHtml(e)}
+    </button></li>`;
+  }).join('') + `</ul>`;
+}
+
+function renderList() {
+  view.innerHTML = `
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="단어, 의미, 예문 검색" value="${esc(S.q)}" autocomplete="off">
+      <div class="filters">
+        ${Object.entries(LANGS).map(([k,v]) =>
+          `<button class="chip" data-lang="${k}" aria-pressed="${S.langFilter.has(k)}">${v}</button>`).join('')}
+      </div>
+    </div>
+    <hr class="hr">
+    <div id="results"></div>`;
+
+  const q = $('#q');
+  q.addEventListener('input', debounce(() => { S.q = q.value; paintResults(); }, 180));
+  view.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => {
+    const k = b.dataset.lang;
+    S.langFilter.has(k) ? S.langFilter.delete(k) : S.langFilter.add(k);
+    b.setAttribute('aria-pressed', String(S.langFilter.has(k)));
+    paintResults();
+  });
+  paintResults();
+}
+
+function paintResults() {
+  const box = $('#results');
+  if (!box) return;
+  const hits = searchHits();
+  box.innerHTML = hits.length
+    ? rowsHtml(hits) + `<p class="hint" style="padding:14px 0 0">${hits.length}개</p>`
+    : `<div class="empty">${live().length
+        ? '<b>찾는 단어가 없습니다</b>다른 철자나 의미로 검색해 보세요.'
+        : '<b>아직 비어 있습니다</b>등록 탭에서 첫 단어를 추가하세요.'}</div>`;
+  bindOpen();
+}
+
+function bindOpen() {
+  view.querySelectorAll('[data-open]').forEach(b => b.onclick = () => go('#/e/' + b.dataset.open));
+}
+
+/* ============================================================
+   8. 등록
+   ============================================================ */
+function renderAdd() {
+  view.innerHTML = `
+    <div class="viewhead"><h1>단어 등록</h1>
+      <p>표제어만 있어도 저장됩니다. 나머지는 나중에 채우면 돼요.</p></div>
+    <div class="seg">
+      ${Object.entries(LANGS).map(([k,v]) =>
+        `<button data-al="${k}" aria-pressed="${S.addLang===k}">${v}</button>`).join('')}
+    </div>
+    <input id="newTerm" class="bigfield" placeholder="단어 또는 표현" autocomplete="off"
+           autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+    <p class="hint" id="dupHint" style="min-height:18px"></p>
+    <button class="btn" id="saveNew">저장</button>
+    <div class="recent">
+      <h2>최근 등록</h2>
+      <div id="recentBox"></div>
+    </div>`;
+
+  const input = $('#newTerm');
+  const hint = $('#dupHint');
+
+  function paintRecent() {
+    const r = live().sort((a,b) => (b.created_at > a.created_at ? 1 : -1)).slice(0, 8);
+    $('#recentBox').innerHTML = r.length ? rowsHtml(r) : '<p class="hint">아직 없습니다.</p>';
+    bindOpen();
+  }
+
+  view.querySelectorAll('[data-al]').forEach(b => b.onclick = () => {
+    S.addLang = b.dataset.al;
+    localStorage.setItem('lastLang', S.addLang);
+    view.querySelectorAll('[data-al]').forEach(x =>
+      x.setAttribute('aria-pressed', String(x.dataset.al === S.addLang)));
+    checkDup();
+    input.focus();
+  });
+
+  function existing() {
+    const t = input.value.trim();
+    if (!t) return null;
+    return live().find(e => e.lang === S.addLang && fold(e.term) === fold(t));
+  }
+  function checkDup() {
+    const d = existing();
+    hint.innerHTML = d ? `이미 등록된 단어입니다. <button class="btn small ghost" data-open="${d.id}" style="padding:2px 8px">열기</button>` : '';
+    bindOpen();
+  }
+  input.addEventListener('input', checkDup);
+  input.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+  });
+
+  async function save() {
+    const t = input.value.trim();
+    if (!t) return;
+    const d = existing();
+    if (d) { go('#/e/' + d.id); return; }
+    await guard(async () => {
+      const e = await createEntry(S.addLang, t);
+      input.value = '';
+      hint.innerHTML = '';
+      input.focus();
+      refreshBadge();
+      paintRecent();
+      toast(`“${e.term}” 저장됨`, '열기', () => go('#/e/' + e.id));
+    });
+  }
+  $('#saveNew').onclick = save;
+  paintRecent();
+  if (matchMedia('(min-width:760px)').matches) input.focus();
+}
+
+/* ============================================================
+   9. 채우기
+   ============================================================ */
+function renderGaps() {
+  const arr = live()
+    .filter(e => gapsOf(e).some(g => S.gapFilter.has(g)))
+    .sort((a,b) => gapsOf(b).length - gapsOf(a).length || a.term.localeCompare(b.term));
+
+  view.innerHTML = `
+    <div class="viewhead"><h1>채우기</h1>
+      <p>선택한 항목이 비어 있는 단어를 모아 봅니다.</p></div>
+    <div class="filters" style="margin-bottom:14px">
+      ${FIELDS.map(f => `<button class="chip markish" data-gap="${f.key}"
+         aria-pressed="${S.gapFilter.has(f.key)}">${f.label}</button>`).join('')}
+    </div>
+    <div class="filters" style="margin-bottom:16px">
+      ${Object.entries(LANGS).map(([k,v]) =>
+        `<button class="chip" data-lang="${k}" aria-pressed="${S.langFilter.has(k)}">${v}</button>`).join('')}
+    </div>
+    <hr class="hr">
+    ${arr.length ? rowsHtml(arr.filter(e => !S.langFilter.size || S.langFilter.has(e.lang)))
+      : '<div class="empty"><b>빈 항목이 없습니다</b>선택한 항목은 모두 채워져 있어요.</div>'}`;
+
+  view.querySelectorAll('[data-gap]').forEach(b => b.onclick = () => {
+    S.gapFilter.has(b.dataset.gap) ? S.gapFilter.delete(b.dataset.gap) : S.gapFilter.add(b.dataset.gap);
+    renderGaps();
+  });
+  view.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => {
+    S.langFilter.has(b.dataset.lang) ? S.langFilter.delete(b.dataset.lang) : S.langFilter.add(b.dataset.lang);
+    renderGaps();
+  });
+  bindOpen();
+}
+
+/* ============================================================
+   10. 휴지통
+   ============================================================ */
+function renderTrash() {
+  const arr = trashed().sort((a,b) => (b.deleted_at > a.deleted_at ? 1 : -1));
+  view.innerHTML = `
+    <div class="viewhead"><h1>휴지통</h1>
+      <p>삭제 후 ${CONFIG.TRASH_DAYS}일이 지나면 자동으로 완전히 지워집니다.</p></div>
+    <hr class="hr">
+    ${arr.length ? arr.map(e => {
+      const left = Math.max(0, CONFIG.TRASH_DAYS - Math.floor((Date.now() - Date.parse(e.deleted_at)) / 864e5));
+      return `<div class="trow">
+        <span class="main">
+          <span class="term">${esc(e.term)}</span>
+          <span class="sub"> ${LANGS[e.lang]} · ${left}일 남음</span>
+        </span>
+        <span class="acts">
+          <button data-restore="${e.id}">되돌리기</button>
+          <button class="x" data-purge="${e.id}">완전 삭제</button>
+        </span>
+      </div>`;
+    }).join('') : '<div class="empty"><b>휴지통이 비어 있습니다</b>삭제한 단어가 여기 보관됩니다.</div>'}`;
+
+  view.querySelectorAll('[data-restore]').forEach(b => b.onclick = () =>
+    guard(async () => { await restore(b.dataset.restore); refreshBadge(); renderTrash(); }));
+  view.querySelectorAll('[data-purge]').forEach(b => b.onclick = () => {
+    const e = S.entries.get(b.dataset.purge);
+    if (!confirm(`“${e.term}”을(를) 완전히 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    guard(async () => { await hardDelete(e.id); renderTrash(); });
+  });
+}
+
+/* ============================================================
+   11. 단어 상세
+   ============================================================ */
+function renderDetail(id) {
+  const e = S.entries.get(id);
+  if (!e) {
+    view.innerHTML = '<div class="empty"><b>없는 단어입니다</b>목록에서 다시 선택해 주세요.</div>';
+    return;
+  }
+  const g = new Set(gapsOf(e));
+
+  view.innerHTML = `
+    <div class="topbar">
+      <button id="back">← 목록</button>
+      <button class="del" id="delEntry">삭제</button>
+    </div>
+    <div class="headword">
+      <input id="term" value="${esc(e.term)}" autocomplete="off" autocapitalize="off"
+             autocorrect="off" spellcheck="false" aria-label="표제어">
+      <div class="metaline">
+        <select id="lang" aria-label="언어">
+          ${Object.entries(LANGS).map(([k,v]) =>
+            `<option value="${k}"${k===e.lang?' selected':''}>${v}</option>`).join('')}
+        </select>
+        <span>${FIELDS.length - g.size} / ${FIELDS.length} 채움</span>
+      </div>
+    </div>
+
+    <section class="f${g.has('audio') ? ' gap' : ''}" id="secAudio"><h3>발음</h3>
+      <div class="audio" id="audioBox"></div>
+    </section>
+
+    <section class="f${g.has('meaning') ? ' gap' : ''}"><h3>의미</h3>
+      <textarea class="auto" id="fMeaning" placeholder="뜻, 용법, 뉘앙스">${esc(e.meaning)}</textarea>
+    </section>
+
+    <section class="f${g.has('etymology') ? ' gap' : ''}"><h3>어원</h3>
+      <textarea class="auto" id="fEtymology" placeholder="어디에서 온 말인지">${esc(e.etymology)}</textarea>
+    </section>
+
+    ${Object.entries(KINDS).map(([k,label]) => `
+      <section class="f${g.has(k) ? ' gap' : ''}" data-sec="${k}"><h3>${label}</h3>
+        <div class="words" data-words="${k}"></div>
+        <div class="wform" data-form="${k}" hidden></div>
+      </section>`).join('')}
+
+    <section class="f${g.has('example') ? ' gap' : ''}"><h3>예문</h3>
+      <div id="exList"></div>
+      <button class="btn small ghost" id="addEx" style="margin-top:10px">예문 추가</button>
+    </section>
+
+    <section class="f"><h3>메모</h3>
+      <textarea class="auto" id="fNote" placeholder="자유롭게">${esc(e.note)}</textarea>
+    </section>`;
+
+  $('#back').onclick = () => history.length > 1 ? history.back() : go('#/list');
+
+  $('#delEntry').onclick = () => {
+    if (!confirm(`“${e.term}”을(를) 휴지통으로 보낼까요?`)) return;
+    guard(async () => {
+      await softDelete(e.id);
+      refreshBadge();
+      go('#/list');
+      toast('휴지통으로 옮겼습니다', '되돌리기', () =>
+        guard(async () => { await restore(e.id); refreshBadge(); go('#/e/' + e.id); }));
+    });
+  };
+
+  // 표제어
+  const termIn = $('#term');
+  const saveTerm = debounce(() => {
+    const t = termIn.value.trim();
+    if (!t || t === e.term) return;
+    const clash = live().find(o => o.id !== e.id && o.lang === e.lang && fold(o.term) === fold(t));
+    if (clash) { toast('같은 언어에 같은 표제어가 이미 있습니다.'); return; }
+    guard(() => patchEntry(e.id, { term: t }));
+  }, 700);
+  termIn.addEventListener('input', saveTerm);
+
+  $('#lang').onchange = ev => {
+    const next = ev.target.value;
+    const clash = live().find(o => o.id !== e.id && o.lang === next && fold(o.term) === fold(e.term));
+    if (clash) {
+      ev.target.value = e.lang;
+      toast(`${LANGS[next]}에 “${e.term}”이(가) 이미 있습니다.`);
+      return;
+    }
+    guard(async () => { await patchEntry(e.id, { lang: next }); renderDetail(e.id); });
+  };
+
+  // 텍스트 필드
+  for (const key of ['meaning','etymology','note']) {
+    const ta = $('#f' + key[0].toUpperCase() + key.slice(1));
+    grow(ta);
+    const save = debounce(() => guard(async () => {
+      await patchEntry(e.id, { [key]: ta.value });
+      refreshBadge();
+      ta.closest('section').classList.toggle('gap', !ta.value.trim() && key !== 'note');
+    }), 700);
+    ta.addEventListener('input', () => { grow(ta); save(); });
+  }
+
+  renderAudio(e.id);
+  for (const k of Object.keys(KINDS)) renderWords(e.id, k);
+  renderExamples(e.id);
+}
+
+/* ---------- 연관어 ---------- */
+function renderWords(id, kind) {
+  const box = view.querySelector(`[data-words="${kind}"]`);
+  if (!box) return;
+  const items = linksOf(id, kind);
+  box.innerHTML = items.map(w => `
+    <span class="wchip">
+      <button class="go" data-open="${w.id}">${esc(w.term)}<span class="lg">${LANG_SHORT[w.lang]}</span></button>
+      <button class="x" data-unlink="${w.id}" title="연결 해제" aria-label="${esc(w.term)} 연결 해제">×</button>
+    </span>`).join('') +
+    `<button class="addw" data-openform="${kind}">+ 추가</button>`;
+
+  box.querySelectorAll('[data-unlink]').forEach(b => b.onclick = () =>
+    guard(async () => {
+      await dropLink(id, b.dataset.unlink, kind);
+      refreshBadge();
+      renderWords(id, kind);
+      view.querySelector(`[data-sec="${kind}"]`)
+        .classList.toggle('gap', !linksOf(id, kind).length);
+    }));
+  box.querySelector('[data-openform]').onclick = () => openWordForm(id, kind);
+  bindOpen();
+}
+
+function openWordForm(id, kind) {
+  const self = S.entries.get(id);
+  const form = view.querySelector(`[data-form="${kind}"]`);
+  form.hidden = false;
+  form.innerHTML = `
+    <div class="line">
+      <select aria-label="언어">
+        ${Object.entries(LANGS).map(([k,v]) =>
+          `<option value="${k}"${k===self.lang?' selected':''}>${v}</option>`).join('')}
+      </select>
+      <input placeholder="단어 입력" autocomplete="off" autocapitalize="off"
+             autocorrect="off" spellcheck="false" enterkeyhint="done">
+    </div>
+    <div class="sugg" hidden></div>
+    <p class="hint">없는 단어를 입력하면 새 항목이 만들어집니다. 연결은 양쪽에 함께 걸립니다.</p>`;
+
+  const sel = form.querySelector('select');
+  const input = form.querySelector('input');
+  const sugg = form.querySelector('.sugg');
+  let cursor = -1;
+
+  function candidates() {
+    const q = fold(input.value.trim());
+    if (!q) return [];
+    const linked = new Set(linksOf(id, kind).map(w => w.id));
+    return live()
+      .filter(o => o.id !== id && !linked.has(o.id) && fold(o.term).includes(q))
+      .sort((a,b) => (fold(a.term).startsWith(q) ? 0 : 1) - (fold(b.term).startsWith(q) ? 0 : 1)
+                     || a.term.localeCompare(b.term))
+      .slice(0, 6);
+  }
+
+  function drawSugg() {
+    const c = candidates();
+    cursor = -1;
+    sugg.hidden = !c.length;
+    sugg.innerHTML = c.map((o,i) =>
+      `<button data-pick="${o.id}" data-i="${i}">${esc(o.term)}<span class="lg">${LANG_SHORT[o.lang]}</span></button>`).join('');
+    sugg.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => attach(b.dataset.pick));
+  }
+
+  function attach(existingId) {
+    guard(async () => {
+      let target;
+      if (existingId) target = S.entries.get(existingId);
+      else {
+        const t = input.value.trim();
+        if (!t) return;
+        target = await createEntry(sel.value, t);
+      }
+      if (!target) return;
+      await addLink(id, target.id, kind);
+      input.value = '';
+      sugg.hidden = true;
+      refreshBadge();
+      renderWords(id, kind);
+      view.querySelector(`[data-sec="${kind}"]`).classList.remove('gap');
+      form.hidden = false;
+      openWordForm(id, kind);
+      view.querySelector(`[data-form="${kind}"] input`).focus();
+    });
+  }
+
+  input.addEventListener('input', drawSugg);
+  input.addEventListener('keydown', ev => {
+    const btns = [...sugg.querySelectorAll('[data-pick]')];
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      if (!btns.length) return;
+      ev.preventDefault();
+      cursor = (cursor + (ev.key === 'ArrowDown' ? 1 : -1) + btns.length) % btns.length;
+      btns.forEach((b,i) => b.classList.toggle('sel', i === cursor));
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      attach(cursor >= 0 ? btns[cursor].dataset.pick : null);
+    } else if (ev.key === 'Escape') {
+      form.hidden = true;
+    }
+  });
+  input.focus();
+}
+
+/* ---------- 예문 ---------- */
+function renderExamples(id) {
+  const box = $('#exList');
+  const list = exOf(id);
+  box.innerHTML = list.map((x, i) => `
+    <div class="ex" data-ex="${x.id}">
+      <textarea class="auto src" data-t="text" placeholder="원문 예문">${esc(x.text)}</textarea>
+      <textarea class="auto" data-t="translation" placeholder="한국어 옮김 (선택)">${esc(x.translation)}</textarea>
+      <div class="tools">
+        <button data-mv="up"   ${i === 0 ? 'disabled' : ''} aria-label="위로">↑</button>
+        <button data-mv="down" ${i === list.length-1 ? 'disabled' : ''} aria-label="아래로">↓</button>
+        <button class="x" data-rm aria-label="예문 삭제">삭제</button>
+      </div>
+    </div>`).join('');
+
+  box.querySelectorAll('.ex').forEach(node => {
+    const exId = node.dataset.ex;
+    node.querySelectorAll('textarea').forEach(ta => {
+      grow(ta);
+      const save = debounce(() => guard(async () => {
+        const field = ta.dataset.t;
+        const row = (S.examples.get(id) || []).find(r => r.id === exId);
+        row[field] = ta.value;
+        const { error } = await sb.from('examples').update({ [field]: ta.value }).eq('id', exId);
+        if (error) throw error;
+        refreshBadge();
+        ta.closest('section').classList.toggle('gap', !exOf(id).some(r => r.text.trim()));
+      }), 700);
+      ta.addEventListener('input', () => { grow(ta); save(); });
+    });
+    node.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => move(exId, b.dataset.mv));
+    node.querySelector('[data-rm]').onclick = () => guard(async () => {
+      const { error } = await sb.from('examples').delete().eq('id', exId);
+      if (error) throw error;
+      S.examples.set(id, (S.examples.get(id) || []).filter(r => r.id !== exId));
+      refreshBadge();
+      renderExamples(id);
+      box.closest('section').classList.toggle('gap', !exOf(id).some(r => r.text.trim()));
+    });
+  });
+
+  function move(exId, dir) {
+    const arr = exOf(id);
+    const i = arr.findIndex(r => r.id === exId);
+    const j = dir === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= arr.length) return;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    guard(async () => {
+      await Promise.all(arr.map((r, k) => {
+        r.sort_order = k;
+        return sb.from('examples').update({ sort_order: k }).eq('id', r.id);
+      }));
+      renderExamples(id);
+    });
+  }
+
+  $('#addEx').onclick = () => guard(async () => {
+    const order = exOf(id).length;
+    const { data, error } = await sb.from('examples')
+      .insert({ user_id:S.uid, entry_id:id, sort_order:order }).select().single();
+    if (error) throw error;
+    if (!S.examples.has(id)) S.examples.set(id, []);
+    S.examples.get(id).push(data);
+    renderExamples(id);
+    const last = $('#exList').lastElementChild;
+    if (last) last.querySelector('textarea').focus();
+  });
+}
+
+/* ---------- 발음 녹음 ---------- */
+const MIMES = [
+  ['audio/webm;codecs=opus','webm'], ['audio/webm','webm'],
+  ['audio/mp4','m4a'], ['audio/aac','aac'], ['audio/ogg;codecs=opus','ogg'],
+];
+function pickMime() {
+  if (typeof MediaRecorder === 'undefined') return null;
+  for (const [m, ext] of MIMES) {
+    try { if (MediaRecorder.isTypeSupported(m)) return { mime:m, ext }; } catch {}
+  }
+  return { mime:'', ext:'webm' };
+}
+
+async function signedUrl(path) {
+  if (S.signed.has(path)) return S.signed.get(path);
+  const { data, error } = await sb.storage.from('audio').createSignedUrl(path, 3600);
+  if (error) throw error;
+  S.signed.set(path, data.signedUrl);
+  return data.signedUrl;
+}
+
+let REC = null;
+
+function renderAudio(id) {
+  const e = S.entries.get(id);
+  const box = $('#audioBox');
+  if (!box) return;
+
+  const canRecord = !!(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
+
+  box.innerHTML = e.audio_path
+    ? `<button class="play" id="playBtn">▶ 발음 듣기</button>
+       ${canRecord ? '<button class="rec" id="recBtn"><span class="dot"></span>다시 녹음</button>' : ''}
+       <button class="btn small ghost" id="rmAudio" style="border-color:transparent;color:var(--faint)">삭제</button>
+       <span class="t" id="recT"></span>`
+    : canRecord
+      ? `<button class="rec" id="recBtn"><span class="dot"></span>녹음</button>
+         <span class="t" id="recT"></span>`
+      : `<span class="t">이 브라우저에서는 녹음할 수 없습니다. HTTPS 주소인지 확인하세요.</span>`;
+
+  const recT = $('#recT');
+
+  if (e.audio_path) {
+    $('#playBtn').onclick = () => guard(async () => {
+      const url = await signedUrl(e.audio_path);
+      const a = new Audio(url);
+      a.play().catch(() => toast('재생할 수 없습니다.'));
+    });
+    $('#rmAudio').onclick = () => {
+      if (!confirm('녹음을 삭제할까요?')) return;
+      guard(async () => {
+        const p = e.audio_path;
+        await patchEntry(id, { audio_path: null });
+        await sb.storage.from('audio').remove([p]);
+        S.signed.delete(p);
+        refreshBadge();
+        renderAudio(id);
+        $('#secAudio').classList.add('gap');
+      });
+    };
+  }
+
+  const btn = $('#recBtn');
+  if (!btn) return;
+
+  btn.onclick = async () => {
+    if (REC) return stopRec();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      const { mime, ext } = pickMime();
+      const mr = new MediaRecorder(stream, mime ? { mimeType:mime } : {});
+      const chunks = [];
+      const t0 = Date.now();
+      mr.ondataavailable = ev => { if (ev.data.size) chunks.push(ev.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        clearInterval(REC.tick);
+        REC = null;
+        const blob = new Blob(chunks, { type: mime || 'audio/webm' });
+        btn.classList.remove('live');
+        if (blob.size < 400) { recT.textContent = ''; toast('녹음이 너무 짧습니다.'); return; }
+        recT.textContent = '올리는 중…';
+        await guard(async () => {
+          const path = `${S.uid}/${id}/${crypto.randomUUID()}.${ext}`;
+          const up = await sb.storage.from('audio').upload(path, blob, { contentType: blob.type });
+          if (up.error) throw up.error;
+          const old = S.entries.get(id).audio_path;
+          await patchEntry(id, { audio_path: path });
+          if (old) { await sb.storage.from('audio').remove([old]); S.signed.delete(old); }
+          refreshBadge();
+          renderAudio(id);
+          $('#secAudio').classList.remove('gap');
+          toast('녹음 저장됨');
+        });
+      };
+      mr.start();
+      btn.classList.add('live');
+      btn.querySelector('.dot').nextSibling.textContent = '정지';
+      REC = { mr, tick: setInterval(() => {
+        const s = (Date.now() - t0) / 1000;
+        recT.textContent = s.toFixed(1) + '초';
+        if (s > 20) stopRec();
+      }, 100) };
+    } catch (err) {
+      console.error(err);
+      toast('마이크를 쓸 수 없습니다. 브라우저 권한을 확인하세요.');
+    }
+  };
+
+  function stopRec() {
+    if (REC?.mr?.state === 'recording') REC.mr.stop();
+  }
+}
+
+/* ============================================================
+   12. 로그인 / 부팅
+   ============================================================ */
+async function start() {
+  $('#boot').textContent = '불러오는 중…';
+  S.uid = (await sb.auth.getUser()).data.user.id;
+  await loadAll();
+  await purgeExpired();
+  $('#boot').style.display = 'none';
+  $('#login').classList.remove('on');
+  $('#nav').classList.add('on');
+  refreshBadge();
+  route();
+}
+
+function showLogin() {
+  $('#boot').style.display = 'none';
+  $('#nav').classList.remove('on');
+  view.innerHTML = '';
+  $('#login').classList.add('on');
+}
+
+$('#lgBtn').onclick = async () => {
+  const err = $('#lgErr');
+  err.textContent = '';
+  $('#lgBtn').disabled = true;
+  const { error } = await sb.auth.signInWithPassword({
+    email: $('#lgEmail').value.trim(),
+    password: $('#lgPass').value,
+  });
+  $('#lgBtn').disabled = false;
+  if (error) err.textContent = '로그인하지 못했습니다. 이메일과 비밀번호를 확인하세요.';
+};
+$('#lgPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn').click(); });
+
+document.querySelectorAll('#nav button[data-nav]').forEach(b =>
+  b.onclick = () => go('#/' + b.dataset.nav));
+window.addEventListener('hashchange', route);
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (session?.user) {
+    if (S.uid !== session.user.id) start().catch(e => {
+      console.error(e);
+      $('#boot').style.display = 'block';
+      $('#boot').textContent = '데이터를 불러오지 못했습니다. 새로고침해 주세요.';
+    });
+  } else {
+    S.uid = null;
+    showLogin();
+  }
+});
+
+sb.auth.getSession().then(({ data }) => { if (!data.session) showLogin(); });
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
