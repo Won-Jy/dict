@@ -21,7 +21,7 @@
   --mark:#8c2f2f;
   --field:#fbfbfb;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",Roboto,"Noto Sans KR",sans-serif;
-  --serif:Georgia,"Iowan Old Style","Times New Roman","Noto Serif",serif;
+  --serif:Georgia,"Iowan Old Style","Times New Roman","Noto Serif","Nanum Myeongjo","Noto Serif KR",Batang,serif;
   --navh:56px;
 }
 *{box-sizing:border-box}
@@ -229,7 +229,7 @@ textarea.src{font-family:var(--serif);font-size:16.5px}
   width:100%;border:1px solid var(--rule);border-radius:3px;background:var(--field);
   padding:12px 13px;font-size:16px;margin-bottom:9px;
 }
-#login .err{color:var(--mark);font-size:13px;min-height:20px;margin-top:10px}
+#login .err{color:var(--mark);font-size:13px;line-height:1.55;min-height:20px;margin-top:12px}
 
 /* toast + status */
 #toast{
@@ -304,8 +304,8 @@ const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 /* ============================================================
    2. 상수 / 상태
    ============================================================ */
-const LANGS = { en:'영어', fr:'프랑스어', de:'독일어' };
-const LANG_SHORT = { en:'EN', fr:'FR', de:'DE' };
+const LANGS = { en:'영어', fr:'프랑스어', de:'독일어', ko:'한국어' };
+const LANG_SHORT = { en:'EN', fr:'FR', de:'DE', ko:'KO' };
 const KINDS = { etym:'어원적 연관어', syn:'동의어', ant:'반의어' };
 const FIELDS = [
   { key:'meaning',   label:'의미' },
@@ -1157,12 +1157,24 @@ $('#lgBtn').onclick = async () => {
   const err = $('#lgErr');
   err.textContent = '';
   $('#lgBtn').disabled = true;
-  const { error } = await sb.auth.signInWithPassword({
-    email: $('#lgEmail').value.trim(),
-    password: $('#lgPass').value,
-  });
+  try {
+    const { error } = await sb.auth.signInWithPassword({
+      email: $('#lgEmail').value.trim(),
+      password: $('#lgPass').value,
+    });
+    if (error) {
+      const m = (error.message || '').toLowerCase();
+      err.textContent =
+        m.includes('invalid login')     ? '이메일 또는 비밀번호가 맞지 않습니다. Supabase의 Authentication → Users에서 만든 계정 비밀번호인지 확인하세요 (프로젝트 만들 때의 Database password가 아닙니다).' :
+        m.includes('not confirmed')     ? '이메일 확인이 안 된 계정입니다. Supabase에서 계정을 지우고 Auto Confirm User를 켠 채로 다시 만드세요.' :
+        m.includes('failed to fetch')   ? 'Supabase에 연결하지 못했습니다. index.html의 SUPABASE_URL이 맞는지, 인터넷이 되는지 확인하세요.' :
+        m.includes('api key')           ? '키가 올바르지 않습니다. index.html의 SUPABASE_ANON_KEY를 다시 붙여넣으세요.' :
+        `로그인하지 못했습니다 — ${error.message}`;
+    }
+  } catch (e) {
+    err.textContent = `연결에 실패했습니다 — ${e.message}`;
+  }
   $('#lgBtn').disabled = false;
-  if (error) err.textContent = '로그인하지 못했습니다. 이메일과 비밀번호를 확인하세요.';
 };
 $('#lgPass').addEventListener('keydown', e => { if (e.key === 'Enter') $('#lgBtn').click(); });
 
