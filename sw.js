@@ -1,6 +1,6 @@
 // 앱 껍데기만 캐시합니다. 단어 데이터는 항상 Supabase에서 가져옵니다.
-const CACHE = 'dict-shell-v1';
-const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'dict-shell-v2';
+const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './favicon-32.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
