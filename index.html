@@ -205,6 +205,15 @@ textarea.src{font-family:var(--serif);font-size:16.5px}
 }
 .audio .t{font-size:12.5px;color:var(--faint);font-variant-numeric:tabular-nums}
 
+/* audio */
+.audio .rm{font-size:12.5px;color:var(--faint);padding:6px 8px}
+.audio .rm:hover{color:var(--mark)}
+.audio.mini{margin-top:8px;margin-bottom:2px}
+.audio.mini .play,.audio.mini .rec{padding:4px 11px;font-size:12px;font-weight:400}
+.audio.mini .rec .dot{width:7px;height:7px}
+.audio.mini .rm{font-size:11.5px;padding:4px 6px}
+.audio.mini .t{font-size:11.5px}
+
 /* examples */
 .ex{padding:12px 0;border-top:1px dotted var(--rule)}
 .ex:first-of-type{border-top:0;padding-top:2px}
@@ -308,13 +317,14 @@ const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
    ============================================================ */
 const LANGS = { en:'영어', fr:'프랑스어', de:'독일어', ko:'한국어' };
 const LANG_SHORT = { en:'EN', fr:'FR', de:'DE', ko:'KO' };
-const KINDS = { etym:'어원적 연관어', syn:'동의어', ant:'반의어' };
+const KINDS = { etym:'어원적 연관어', syn:'동의어', sim:'유사어', ant:'반의어' };
 const FIELDS = [
   { key:'meaning',   label:'의미' },
   { key:'audio',     label:'발음' },
   { key:'etymology', label:'어원' },
   { key:'etym',      label:'어원적 연관어' },
   { key:'syn',       label:'동의어' },
+  { key:'sim',       label:'유사어' },
   { key:'ant',       label:'반의어' },
   { key:'example',   label:'예문' },
 ];
@@ -378,6 +388,13 @@ function grow(ta) {
 }
 
 const live = () => [...S.entries.values()].filter(e => !e.deleted_at);
+const audioPathsOf = id => {
+  const out = [];
+  const e = S.entries.get(id);
+  if (e?.audio_path) out.push(e.audio_path);
+  for (const x of (S.examples.get(id) || [])) if (x.audio_path) out.push(x.audio_path);
+  return out;
+};
 const trashed = () => [...S.entries.values()].filter(e => e.deleted_at);
 const exOf = id => (S.examples.get(id) || []).slice().sort((a,b) => a.sort_order - b.sort_order);
 const linksOf = (id, kind) => S.links
@@ -393,6 +410,7 @@ function gapsOf(e) {
   if (!e.etymology.trim())          g.push('etymology');
   if (!linksOf(e.id,'etym').length) g.push('etym');
   if (!linksOf(e.id,'syn').length)  g.push('syn');
+  if (!linksOf(e.id,'sim').length)  g.push('sim');
   if (!linksOf(e.id,'ant').length)  g.push('ant');
   if (!exOf(e.id).some(x => x.text.trim())) g.push('example');
   return g;
@@ -430,7 +448,7 @@ async function purgeExpired() {
   const cutoff = new Date(Date.now() - CONFIG.TRASH_DAYS * 864e5).toISOString();
   const old = trashed().filter(e => e.deleted_at < cutoff);
   if (!old.length) return;
-  const paths = old.map(e => e.audio_path).filter(Boolean);
+  const paths = old.flatMap(e => audioPathsOf(e.id));
   if (paths.length) await sb.storage.from('audio').remove(paths);
   await sb.from('entries').delete().in('id', old.map(e => e.id));
   for (const e of old) S.entries.delete(e.id);
@@ -489,8 +507,8 @@ async function restore(id) {
   await patchEntry(id, { deleted_at: null });
 }
 async function hardDelete(id) {
-  const e = S.entries.get(id);
-  if (e.audio_path) await sb.storage.from('audio').remove([e.audio_path]);
+  const paths = audioPathsOf(id);
+  if (paths.length) await sb.storage.from('audio').remove(paths);
   const { error } = await sb.from('entries').delete().eq('id', id);
   if (error) throw error;
   S.entries.delete(id);
@@ -840,7 +858,7 @@ function renderDetail(id) {
     ta.addEventListener('input', () => { grow(ta); save(); });
   }
 
-  renderAudio(e.id);
+  mountWordAudio(e.id);
   for (const k of Object.keys(KINDS)) renderWords(e.id, k);
   renderExamples(e.id);
 }
@@ -957,6 +975,7 @@ function renderExamples(id) {
   box.innerHTML = list.map((x, i) => `
     <div class="ex" data-ex="${x.id}">
       <textarea class="auto src" data-t="text" placeholder="원문 예문">${esc(x.text)}</textarea>
+      <div class="exaudio"></div>
       <textarea class="auto" data-t="translation" placeholder="한국어 옮김 (선택)">${esc(x.translation)}</textarea>
       <div class="tools">
         <button data-mv="up"   ${i === 0 ? 'disabled' : ''} aria-label="위로">↑</button>
@@ -980,10 +999,16 @@ function renderExamples(id) {
       }), 700);
       ta.addEventListener('input', () => { grow(ta); save(); });
     });
+    mountExAudio(id, exId, node.querySelector('.exaudio'));
     node.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => move(exId, b.dataset.mv));
     node.querySelector('[data-rm]').onclick = () => guard(async () => {
+      const row = (S.examples.get(id) || []).find(r => r.id === exId);
       const { error } = await sb.from('examples').delete().eq('id', exId);
       if (error) throw error;
+      if (row?.audio_path) {
+        await sb.storage.from('audio').remove([row.audio_path]);
+        S.signed.delete(row.audio_path);
+      }
       S.examples.set(id, (S.examples.get(id) || []).filter(r => r.id !== exId));
       refreshBadge();
       renderExamples(id);
@@ -1040,52 +1065,53 @@ async function signedUrl(path) {
   return data.signedUrl;
 }
 
-let REC = null;
+let REC = null;   // 한 번에 하나만 녹음
 
-function renderAudio(id) {
-  const e = S.entries.get(id);
-  const box = $('#audioBox');
+/* 재사용 가능한 녹음 컨트롤.
+   ctl = { get(), set(path), dir, refresh(), compact } */
+function mountAudio(box, ctl) {
   if (!box) return;
-
-  const canRecord = !!(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
-
-  box.innerHTML = e.audio_path
-    ? `<button class="play" id="playBtn">▶ 발음 듣기</button>
-       ${canRecord ? '<button class="rec" id="recBtn"><span class="dot"></span>다시 녹음</button>' : ''}
-       <button class="btn small ghost" id="rmAudio" style="border-color:transparent;color:var(--faint)">삭제</button>
-       <span class="t" id="recT"></span>`
-    : canRecord
-      ? `<button class="rec" id="recBtn"><span class="dot"></span>녹음</button>
-         <span class="t" id="recT"></span>`
+  const path = ctl.get();
+  const canRec = !!(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined';
+  box.classList.add('audio');
+  box.classList.toggle('mini', !!ctl.compact);
+  box.innerHTML = path
+    ? `<button class="play">▶ ${ctl.compact ? '듣기' : '발음 듣기'}</button>`
+      + (canRec ? `<button class="rec"><span class="dot"></span><span class="lbl">다시 녹음</span></button>` : '')
+      + `<button class="rm">삭제</button><span class="t"></span>`
+    : canRec
+      ? `<button class="rec"><span class="dot"></span><span class="lbl">녹음</span></button><span class="t"></span>`
       : `<span class="t">이 브라우저에서는 녹음할 수 없습니다. HTTPS 주소인지 확인하세요.</span>`;
 
-  const recT = $('#recT');
+  const t    = box.querySelector('.t');
+  const play = box.querySelector('.play');
+  const rm   = box.querySelector('.rm');
+  const btn  = box.querySelector('.rec');
 
-  if (e.audio_path) {
-    $('#playBtn').onclick = () => guard(async () => {
-      const url = await signedUrl(e.audio_path);
-      const a = new Audio(url);
-      a.play().catch(() => toast('재생할 수 없습니다.'));
+  if (play) play.onclick = () => guard(async () => {
+    const url = await signedUrl(ctl.get());
+    new Audio(url).play().catch(() => toast('재생할 수 없습니다.'));
+  });
+
+  if (rm) rm.onclick = () => {
+    if (!confirm('녹음을 삭제할까요?')) return;
+    guard(async () => {
+      const old = ctl.get();
+      await ctl.set(null);
+      if (old) { await sb.storage.from('audio').remove([old]); S.signed.delete(old); }
+      refreshBadge();
+      ctl.refresh();
     });
-    $('#rmAudio').onclick = () => {
-      if (!confirm('녹음을 삭제할까요?')) return;
-      guard(async () => {
-        const p = e.audio_path;
-        await patchEntry(id, { audio_path: null });
-        await sb.storage.from('audio').remove([p]);
-        S.signed.delete(p);
-        refreshBadge();
-        renderAudio(id);
-        $('#secAudio').classList.add('gap');
-      });
-    };
-  }
+  };
 
-  const btn = $('#recBtn');
   if (!btn) return;
 
   btn.onclick = async () => {
-    if (REC) return stopRec();
+    if (REC) {
+      if (REC.box === box) stopRec();
+      else toast('진행 중인 녹음을 먼저 멈추세요.');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
       const { mime, ext } = pickMime();
@@ -1094,32 +1120,32 @@ function renderAudio(id) {
       const t0 = Date.now();
       mr.ondataavailable = ev => { if (ev.data.size) chunks.push(ev.data); };
       mr.onstop = async () => {
-        stream.getTracks().forEach(t => t.stop());
-        clearInterval(REC.tick);
+        stream.getTracks().forEach(s => s.stop());
+        clearInterval(REC?.tick);
         REC = null;
-        const blob = new Blob(chunks, { type: mime || 'audio/webm' });
         btn.classList.remove('live');
-        if (blob.size < 400) { recT.textContent = ''; toast('녹음이 너무 짧습니다.'); return; }
-        recT.textContent = '올리는 중…';
+        btn.querySelector('.lbl').textContent = ctl.get() ? '다시 녹음' : '녹음';
+        const blob = new Blob(chunks, { type: mime || 'audio/webm' });
+        if (blob.size < 400) { t.textContent = ''; toast('녹음이 너무 짧습니다.'); return; }
+        t.textContent = '올리는 중…';
         await guard(async () => {
-          const path = `${S.uid}/${id}/${crypto.randomUUID()}.${ext}`;
-          const up = await sb.storage.from('audio').upload(path, blob, { contentType: blob.type });
+          const p = `${ctl.dir}/${crypto.randomUUID()}.${ext}`;
+          const up = await sb.storage.from('audio').upload(p, blob, { contentType: blob.type });
           if (up.error) throw up.error;
-          const old = S.entries.get(id).audio_path;
-          await patchEntry(id, { audio_path: path });
+          const old = ctl.get();
+          await ctl.set(p);
           if (old) { await sb.storage.from('audio').remove([old]); S.signed.delete(old); }
           refreshBadge();
-          renderAudio(id);
-          $('#secAudio').classList.remove('gap');
+          ctl.refresh();
           toast('녹음 저장됨');
         });
       };
       mr.start();
       btn.classList.add('live');
-      btn.querySelector('.dot').nextSibling.textContent = '정지';
-      REC = { mr, tick: setInterval(() => {
+      btn.querySelector('.lbl').textContent = '정지';
+      REC = { mr, box, tick: setInterval(() => {
         const s = (Date.now() - t0) / 1000;
-        recT.textContent = s.toFixed(1) + '초';
+        t.textContent = s.toFixed(1) + '초';
         if (s > 20) stopRec();
       }, 100) };
     } catch (err) {
@@ -1128,9 +1154,37 @@ function renderAudio(id) {
     }
   };
 
-  function stopRec() {
-    if (REC?.mr?.state === 'recording') REC.mr.stop();
-  }
+  function stopRec() { if (REC?.mr?.state === 'recording') REC.mr.stop(); }
+}
+
+/* 표제어 발음 */
+function mountWordAudio(id) {
+  mountAudio($('#audioBox'), {
+    get: () => S.entries.get(id).audio_path,
+    set: async p => { await patchEntry(id, { audio_path: p }); },
+    dir: `${S.uid}/${id}`,
+    refresh: () => {
+      mountWordAudio(id);
+      $('#secAudio')?.classList.toggle('gap', !S.entries.get(id).audio_path);
+    },
+  });
+}
+
+/* 예문 원문 발음 */
+function mountExAudio(entryId, exId, box) {
+  const row = () => (S.examples.get(entryId) || []).find(r => r.id === exId);
+  mountAudio(box, {
+    compact: true,
+    get: () => row()?.audio_path || null,
+    set: async p => {
+      const r = row();
+      if (r) r.audio_path = p;
+      const { error } = await sb.from('examples').update({ audio_path: p }).eq('id', exId);
+      if (error) throw error;
+    },
+    dir: `${S.uid}/${entryId}/ex/${exId}`,
+    refresh: () => mountExAudio(entryId, exId, box),
+  });
 }
 
 /* ============================================================
